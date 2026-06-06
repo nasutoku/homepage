@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>栃木県立那須養護学校</title>
+
+<script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
+
+<style>
+body{
+    text-align:center;
+    font-family:"Yu Gothic", sans-serif;
+    background-color:#f5f9ff;
+    margin:0;
+    /* 上のスペースを限界まで詰めました */
+    padding: 5px 30px 30px 30px; 
+    overflow-x: hidden; /* 写真が横から飛び出す際のスクロールバーを隠す */
+}
+
+h1{
+    color:#003366;
+    font-size:2.5em;
+    margin-top: 0; 
+    margin-bottom:20px;
+}
+
+/* 💡 写真を表示するコンテナ（横移動のアニメーション用） */
+.image-container {
+    position: relative;
+    width: 80%;
+    max-width: 700px;
+    margin: 0 auto;
+    overflow: hidden;
+    border:3px solid #003366;
+    border-radius:10px;
+    box-shadow:0 4px 8px rgba(0,0,0,0.2);
+    aspect-ratio: 4 / 3; /* 写真の比率を固定してガタつきを防ぐ */
+}
+
+img{
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s ease-in-out, opacity 0.5s ease-in-out;
+}
+
+/* 💡 次の写真（左側から出てくる用） */
+.slide-from-left {
+    animation: slideLeft 0.6s forwards ease-out;
+}
+@keyframes slideLeft {
+    0% { transform: translateX(-100%); opacity: 0; }
+    100% { transform: translateX(0); opacity: 1; }
+}
+
+/* 💡 前の写真（右側から出てくる用） */
+.slide-from-right {
+    animation: slideRight 0.6s forwards ease-out;
+}
+@keyframes slideRight {
+    0% { transform: translateX(100%); opacity: 0; }
+    100% { transform: translateX(0); opacity: 1; }
+}
+
+.welcome{
+    display:inline-block;
+    margin-top:20px;
+    padding:12px 24px;
+    font-size:1.5em;
+    font-weight:bold;
+    color:white;
+    background:linear-gradient(135deg,#4facfe,#00c6ff);
+    border-radius:50px;
+    box-shadow:0 8px 20px rgba(0,0,0,0.15);
+    animation: floating 2.5s ease-in-out infinite;
+}
+
+@keyframes floating{
+    0%{ transform: translateY(0); }
+    50%{ transform: translateY(-10px); }
+    100%{ transform: translateY(0); }
+}
+
+/* カメラの状態を表示する案内板 */
+#camera-status {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 8px 15px;
+    border-radius: 5px;
+    font-size: 0.8em;
+    z-index: 9999;
+}
+</style>
+</head>
+
+<body>
+
+<div id="camera-status">カメラ準備中...（許可してください）</div>
+
+<h1>栃木県立那須養護学校</h1>
+
+<div class="image-container">
+    <img id="school-image" src="昔の１棟.png">
+</div>
+
+<div class="welcome">
+    那須養護学校のホームページへようこそ！
+</div>
+
+<div style="margin-top: 500px; padding: 20px; color: #777;">
+    --- ホームページの下部エリア（顔を下にむけるとここまで進みます） ---
+</div>
+
+<script>
+/* -------------------------------------------
+   1. 写真切り替えのデータと処理
+------------------------------------------- */
+const images = [
+    "昔の１棟.png",
+    "校舎.png",        /* あなたの持っている別画像ファイル名 */
+    "学校の風景.png"    /* あなたの持っている別画像ファイル名 */
+];
+let currentIndex = 0;
+const imgEl = document.getElementById("school-image");
+
+// 次の写真（左側から出てくる）
+function nextImage() {
+    currentIndex = (currentIndex + 1) % images.length;
+    imgEl.className = ""; // 一度アニメーションをリセット
+    void imgEl.offsetWidth; // 画面リフレッシュ
+    imgEl.src = images[currentIndex];
+    imgEl.classList.add("slide-from-left");
+}
+
+// 前の写真（右側から出てくる）
+function prevImage() {
+    currentIndex = (currentIndex - 1 + images.length) % images.length;
+    imgEl.className = "";
+    void imgEl.offsetWidth;
+    imgEl.src = images[currentIndex];
+    imgEl.classList.add("slide-from-right");
+}
+
+
+/* -------------------------------------------
+   2. カメラ・顔認識AI（WebGazer）の設定
+------------------------------------------- */
+let isCooldown = false; // 連続動作を防ぐためのクールダウン（連打防止）
+
+window.onload = async function() {
+    const statusEl = document.getElementById("camera-status");
+
+    // WebGazerの初期設定
+    webgazer.setGazeListener(function(data, elapsedTime) {
+        if (data == null || isCooldown) return;
+
+        // 画面の基準サイズを取得
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        // data.x と data.y に、いま顔／視線が向いている画面の座標が入ります
+        const x = data.x;
+        const y = data.y;
+
+        // 【上に向ける】画面の上側20%より上を見たら上にスクロール
+        if (y < height * 0.20) {
+            window.scrollBy({ top: -40, behavior: 'smooth' });
+        }
+        // 【下に向ける】画面の下側80%より下を見たら下にスクロール
+        else if (y > height * 0.80) {
+            window.scrollBy({ top: 40, behavior: 'smooth' });
+        }
+        // 【右に向ける】顔を右（画面の右端15%）に向けると、次の写真が左から
+        else if (x > width * 0.85) {
+            activateCooldown();
+            nextImage();
+        }
+        // 【左に向ける】顔を左（画面の左端15%）に向けると、前の写真が右から
+        else if (x < width * 0.15) {
+            activateCooldown();
+            prevImage();
+        }
+    }).begin();
+
+    // 画面上に邪魔な赤い点やビデオプレビューを表示したくない場合は以下で非表示にできます
+    webgazer.showVideoPreview(true) // 慣れるまでは自分の顔が見えた方が調整しやすいのでtrueにしています
+             .showPredictionPoints(true); // 認識している位置にドットを出す
+
+    statusEl.textContent = "カメラ連動：稼働中";
+};
+
+// 写真がシャカシャカ連続で切り替わらないように、1.5秒間の待機時間を設ける関数
+function activateCooldown() {
+    isCooldown = true;
+    setTimeout(() => { isCooldown = false; }, 1500);
+}
+
+// ページを閉じるときにカメラをオフにする
+window.onbeforeunload = function() {
+    webgazer.end();
+};
+</script>
+
+</body>
+</html>
