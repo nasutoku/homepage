@@ -118,7 +118,7 @@ h1{ font-size:clamp(2rem,5vw,2.5rem); margin-bottom:15px; }
     z-index: 9999;
 }
 
-/* 顔の向きインジケーター */
+/* 顔の向き・口の状態インジケーター */
 #face-indicator {
     position: fixed;
     top: 50px;
@@ -129,7 +129,7 @@ h1{ font-size:clamp(2rem,5vw,2.5rem); margin-bottom:15px; }
     border-radius: 5px;
     font-size: 1.1em;
     z-index: 9999;
-    min-width: 110px;
+    min-width: 140px;
     text-align: center;
 }
 
@@ -267,7 +267,6 @@ h1{ font-size:clamp(2rem,5vw,2.5rem); margin-bottom:15px; }
 #chat-input::placeholder { color: rgba(255,255,255,0.4); }
 #chat-input:focus { border-color: rgba(96,165,250,0.6); }
 
-/* 💡 新しく追加した音声入力マイクボタン */
 #chat-voice-btn {
     width: 40px;
     height: 40px;
@@ -284,7 +283,7 @@ h1{ font-size:clamp(2rem,5vw,2.5rem); margin-bottom:15px; }
 }
 #chat-voice-btn:hover { background: rgba(255, 255, 255, 0.2); transform: scale(1.05); }
 #chat-voice-btn.recording {
-    background: #ef4444; /* 録音中はボタンを赤くして目立たせる */
+    background: #ef4444; 
     animation: pulse 1.2s infinite;
     border-color: transparent;
 }
@@ -325,7 +324,7 @@ h1{ font-size:clamp(2rem,5vw,2.5rem); margin-bottom:15px; }
 <div id="chat-window" class="hidden">
     <div id="chat-header">🤖 那須特別支援学校案内AI</div>
     <div id="chat-messages">
-        <div class="chat-bubble ai">こんにちは！那須特別支援学校（那須養護学校）について案内するよ！何でも聞いてね😊<br><br>🎤 マイクボタンを押すと、声で質問することもできるよ！<br><br>【きけることのれい】<br>・学校はどこにある？<br>・どんな学校？<br>・名物はなに？</div>
+        <div class="chat-bubble ai">こんにちは！那須特別支援学校（那須養護学校）について案内するよ！何でも聞いてね😊<br><br>😮 <b>カメラに向かって口を大きく開く</b>か、マイクボタンを押すと、声で質問できるよ！<br><br>【きけることのれい】<br>・学校はどこにある？<br>・どんな学校？<br>・名物はなに？</div>
     </div>
     <div id="chat-input-area">
         <textarea id="chat-input" rows="1" placeholder="メッセージを入力..."></textarea>
@@ -382,7 +381,7 @@ function prevImage() {
 document.getElementById("changeImage").addEventListener("click", () => nextImage());
 
 
-/* ===== 3. MediaPipe Face Mesh による顔の向き検出 ===== */
+/* ===== 3. MediaPipe Face Mesh による顔の向き＆口の開閉検出 ===== */
 const statusEl    = document.getElementById("camera-status");
 const indicatorEl = document.getElementById("face-indicator");
 const videoEl     = document.getElementById("camera-video");
@@ -393,11 +392,15 @@ function activateCooldown(ms = 1500) {
     setTimeout(() => { isCooldown = false; }, ms);
 }
 
+// 顔認識のポイント定義
 const NOSE_TIP  = 1;
 const LEFT_EYE  = 33;
 const RIGHT_EYE = 263;
 const CHIN      = 152;
 const FOREHEAD  = 10;
+// 口のパーツ（上唇の下フチと、下唇の上フチ）
+const LIP_TOP    = 13;
+const LIP_BOTTOM = 14;
 
 let pitchBaseline = null;
 let baselineSamples = [];
@@ -415,7 +418,10 @@ function onResults(results) {
     const rightEye = lm[RIGHT_EYE];
     const chin     = lm[CHIN];
     const forehead = lm[FOREHEAD];
+    const lipTop   = lm[LIP_TOP];
+    const lipBottom= lm[LIP_BOTTOM];
 
+    // 左右・上下の計算
     const eyeMidX  = (leftEye.x + rightEye.x) / 2;
     const eyeWidth = Math.abs(rightEye.x - leftEye.x) + 0.001;
     const yawRatio = (nose.x - eyeMidX) / eyeWidth;
@@ -447,6 +453,10 @@ function onResults(results) {
     else if (pitchDelta <  PITCH_UP)    direction = "up";
     else if (pitchDelta >  PITCH_DOWN)  direction = "down";
 
+    // 💡 追記：口の開き具合（縦の距離）を計算
+    const mouthDistance = Math.abs(lipBottom.y - lipTop.y) / faceHeight;
+    const isMouthOpen = mouthDistance > 0.07; // 基準値0.07（これより開くと「開いた」とみなす）
+
     const labels = {
         center:      "😐 正面",
         left_face:   "⬅️ 左向き",
@@ -454,13 +464,22 @@ function onResults(results) {
         up:          "⬆️ 上向き",
         down:        "⬇️ 下向き"
     };
-    indicatorEl.textContent = labels[direction];
 
+    // 画面に今の状態を表示
+    if (isMouthOpen) {
+        indicatorEl.textContent = "😮 口が開いています";
+        // 💡 口が開いたら、音声入力を自動スタートさせる
+        triggerVoiceRecognitionFromMouth();
+    } else {
+        indicatorEl.textContent = labels[direction];
+    }
+
+    // スクロール処理の判定
     currentScrollDir = (direction === "up") ? -1
                      : (direction === "down") ?  1
                      : 0;
 
-    if (!isCooldown) {
+    if (!isCooldown && !isMouthOpen) {
         if (direction === "right_face") {
             activateCooldown(1500);
             nextImage();
@@ -534,7 +553,7 @@ const chatWindow   = document.getElementById("chat-window");
 const chatMessages = document.getElementById("chat-messages");
 const chatInput    = document.getElementById("chat-input");
 const chatSend     = document.getElementById("chat-send");
-const chatVoiceBtn = document.getElementById("chat-voice-btn"); // 💡 マイクボタン
+const chatVoiceBtn = document.getElementById("chat-voice-btn");
 
 chatToggle.addEventListener("click", () => {
     chatWindow.classList.toggle("hidden");
@@ -542,7 +561,7 @@ chatToggle.addEventListener("click", () => {
 });
 
 const qaDictionary = [
-    { keywords: ["どこ", "場所", "住所", "アクセス"], reply: "那須特別支援学校は、栃木県那須塩原市にあるよ！緑に囲まれたとても素敵な場所なんだ。" },
+    { keywords: ["どこ", "場所", "住所", "アクセス"], reply: "那須特別支援学校は、栃木県那須塩原市にあるよ！緑に囲まれたとても素敵な場所んだ。" },
     { keywords: ["どんな", "特徴", "紹介"], reply: "小学部、中学部、高等部があって、みんなで楽しく勉強や運動をしているよ！一人一人の個性を大切にする学校だよ。" },
     { keywords: ["名物", "イベント", "行事"], reply: "学校の周りの豊かな自然を活かした体験学習や、みんなで協力して創り上げる「学校祭」がとっても盛り上がるよ！" },
     { keywords: ["こんにちは", "はじめまして", "おはよ", "こんばん"], reply: "こんにちは！お話しできて嬉しいな。学校のことで気になることがあれば何でも聞いてね！" },
@@ -562,7 +581,7 @@ function sendMessage() {
 
     setTimeout(() => {
         typingEl.remove();
-        let matchedReply = "ごめんね、その質問はまだ勉強中なんだ。別の言い方をするか、「どこにある？」や「どんな学校？」などと聞いてみてね！";
+        let matchedReply = "ごめんね、その質問はまだ勉強中んだ。別の言い方をするか、「どこにある？」や「どんな学校？」などと聞いてみてね！";
         const lowerText = text.toLowerCase();
         for (const item of qaDictionary) {
             if (item.keywords.some(kw => lowerText.includes(kw))) {
@@ -599,68 +618,79 @@ chatInput.addEventListener("keydown", e => {
 chatSend.addEventListener("click", () => { if (!chatSend.disabled) sendMessage(); });
 
 
-/* ===== 6. 💡 新機能：Web Speech APIによる音声認識の処理 ===== */
-
-// ブラウザが音声認識に対応しているかチェックする
+/* ===== 6. 音声認識（Web Speech API）の設定 ===== */
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition = null;
+let isRecording = false;
 
-if (!SpeechRecognition) {
-    // 対応していない古いブラウザ（一部の環境）ではマイクボタンを隠す
-    chatVoiceBtn.style.display = "none";
-} else {
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'ja-JP';            // 日本語に設定
-    recognition.interimResults = false;    // 途中の結果はいらない
-    recognition.maxAlternatives = 1;       // 候補は1つだけでいい
+if (SpeechRecognition) {
+    recognition = new SpeechRecognition();
+    recognition.lang = 'ja-JP';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
 
-    let isRecording = false;
-
-    // マイクボタンを押したときの処理
     chatVoiceBtn.addEventListener("click", () => {
         if (!isRecording) {
-            // 録音開始
-            try {
-                recognition.start();
-            } catch (e) {
-                console.error(e);
-            }
+            startVoice();
         } else {
-            // 途中で止める場合
-            recognition.stop();
+            stopVoice();
         }
     });
 
-    // 録音が始まった瞬間
     recognition.onstart = () => {
         isRecording = true;
         chatVoiceBtn.classList.add("recording");
         chatInput.placeholder = "音声を聞き取り中...";
     };
 
-    // 録音が終わった瞬間（話し終わったとき）
     recognition.onend = () => {
         isRecording = false;
         chatVoiceBtn.classList.remove("recording");
         chatInput.placeholder = "メッセージを入力...";
     };
 
-    // 音声の聞き取りが成功し、文字に変換できたとき
     recognition.onresult = (event) => {
-        const speechToText = event.results[0][0].transcript; // 変換された文字
-        chatInput.value = speechToText; // 入力欄に文字を入れる
+        const speechToText = event.results[0][0].transcript;
+        chatInput.value = speechToText;
         autoResizeTextarea();
-        
-        // 💡 声が入ったらそのまま自動でAIに送信する
         sendMessage();
     };
 
-    // エラーが起きたとき
     recognition.onerror = (event) => {
         console.error("音声認識エラー: ", event.error);
         isRecording = false;
         chatVoiceBtn.classList.remove("recording");
         chatInput.placeholder = "メッセージを入力...";
     };
+} else {
+    chatVoiceBtn.style.display = "none";
+}
+
+// 音声入力を開始する関数
+function startVoice() {
+    if (recognition && !isRecording) {
+        // チャット画面が開いていなければ自動で開く
+        chatWindow.classList.remove("hidden");
+        try {
+            recognition.start();
+        } catch (e) { console.error(e); }
+    }
+}
+
+// 音声入力をストップする関数
+function stopVoice() {
+    if (recognition && isRecording) {
+        recognition.stop();
+    }
+}
+
+// 💡 口が開いた時に呼び出される関数
+function triggerVoiceRecognitionFromMouth() {
+    // すでに録音中、またはAIが考え中の時はスキップする
+    if (isRecording || chatSend.disabled) return;
+    
+    // 音声入力をスタート！
+    startVoice();
 }
 </script>
 
