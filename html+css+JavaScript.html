@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>栃木県立那須特別支援学校</title>
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    min-height:100vh;
+    font-family:"Yu Gothic","Meiryo",sans-serif;
+    background:
+        linear-gradient(
+            135deg,
+            #0f172a,
+            #1e3a8a,
+            #38bdf8
+        );
+    color:white;
+    overflow-x:hidden;
+}
+
+/* マウス追従ライト */
+
+#cursor-light{
+    position:fixed;
+    width:350px;
+    height:350px;
+
+    background:
+        radial-gradient(
+            circle,
+            rgba(255,255,255,.25),
+            transparent 70%
+        );
+
+    pointer-events:none;
+    transform:translate(-50%,-50%);
+    z-index:0;
+}
+
+/* メインカード */
+
+.hero{
+    position:relative;
+    z-index:1;
+
+    width:min(90%,900px);
+
+    margin:20px auto;
+
+    padding: 20px 40px 40px 40px; 
+
+    text-align:center;
+    background:rgba(255,255,255,.12);
+
+    backdrop-filter:blur(15px);
+
+    border:1px solid rgba(255,255,255,.2);
+
+    border-radius:30px;
+
+    box-shadow:
+        0 20px 50px rgba(0,0,0,.3);
+}
+
+/* タイトル */
+
+h1{
+    font-size:clamp(2rem,5vw,2.5rem);
+    margin-bottom:15px; 
+}
+
+/* 画像 */
+
+.school-image{
+    width:100%;
+    max-width:700px;
+
+    border-radius:20px;
+
+    box-shadow:
+        0 15px 40px rgba(0,0,0,.35);
+
+    transition:.5s;
+}
+
+.school-image:hover{
+    transform: scale(1.05);
+}
+
+/* メッセージ */
+
+#welcome{
+    margin-top:20px;
+    min-height: auto;
+
+    font-size:1.8rem;
+    font-weight:bold;
+    line-height:1.2;
+}
+
+/* 説明文 */
+
+.description{
+    margin-top:5px;
+    font-size:1.1rem;
+    line-height:1.8;
+    opacity:.95;
+}
+
+/* ボタン */
+
+/* ボタン */
+
+.button{
+    display:inline-block;
+
+    margin-top:15px;
+
+    padding:15px 30px;
+
+    /* 💡 ここにお好みのフォントを追加します */
+    font-family: "Hiragino Maru Gothic ProN", "Yu Gothic UI", "Meiryo", sans-serif;
+    font-weight: bold; /* 文字を太くして見やすくします */
+
+    background:
+        linear-gradient(
+            135deg,
+            #60a5fa,
+            #2563eb
+        );
+    
+    border-radius:50px;
+
+    cursor:pointer;
+
+    transition:.3s;
+}
+
+.button:hover{
+    transform:translateY(-5px);
+}
+
+/* フェードイン（全体用） */
+
+.fade{
+    opacity:0;
+    transform:translateY(30px);
+    transition:1s;
+}
+
+.fade.show{
+    opacity:1;
+    transform:none;
+}
+
+/* メッセージ専用：その場でだんだん現れるフェードイン */
+.fade-in-only {
+    opacity: 0;
+    transition: opacity 3.0s ease; /* ゆっくり（3秒）フェードインに設定中 */
+}
+
+/* 画面に表示されたら不透明度を1にする */
+.fade-in-only.show {
+    opacity: 1;
+}
+
+
+
+
+/* 💡 写真が1回転して現れるアニメーションの設定 */
+.rotate-animation {
+    animation: spinAndFade 0.8s ease-out; /* 0.8秒かけて回転しながら現れます（速度はお好みで） */
+}
+
+@keyframes spinAndFade {
+    0% {
+        transform: scale(0.3) rotate(0deg); /* 最初は小さく、回転なし */
+        opacity: 0;                         /* 最初は透明 */
+    }
+    100% {
+        transform: scale(1) rotate(360deg); /* 1回転（360度）して元の大きさに */
+        opacity: 1;                         /* 完全に表示 */
+    }
+}
+
+
+/* 💡 写真専用：少し小さい状態からふわっと現れるフェードイン */
+.image-fade-in {
+    /* 1.5秒かけて動かします。1.0sにすると少しキビキビ動き、2.0sにするとより優雅になります */
+    animation: fadeInAndScale 1.5s ease-out forwards; 
+}
+
+@keyframes fadeInAndScale {
+    0% {
+        opacity: 0;
+        transform: scale(0.93); /* 💡 最初は本来の大きさの93%（少し小さい状態） */
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1.0);  /* 💡 最終的に100%（通常の大きさ）に戻る */
+    }
+}
+
+
+
+</style>
+</head>
+
+<body>
+
+<div id="cursor-light"></div>
+
+<div class="hero fade">
+
+    <h1>栃木県立那須特別支援学校</h1>
+
+    <img
+        src="昔の１棟.png"
+        class="school-image"
+    >
+
+    <div id="welcome" class="fade-in-only"></div>
+
+    <div class="description"></div>
+
+    <div class="button" id="changeImage">
+        写真の変更
+    </div>
+
+</div>
+
+<script>
+
+/* 時間帯で挨拶変更 */
+
+const today = new Date();
+const hour = today.getHours();
+
+let greeting = "";
+
+if(hour < 12){
+    greeting = "おはようございます！";
+}
+else if(hour < 18){
+    greeting = "こんにちは！";
+}
+else{
+    greeting = "こんばんは！";
+}
+
+const message =
+    greeting +
+    " 那須特別支援学校のホームページへようこそ！";
+
+/* メッセージ一括表示 */
+
+const target = document.getElementById("welcome");
+target.textContent = message;
+
+
+/* 写真切替の処理 */
+
+const images = [
+    "昔の１棟.png",
+    "sky.jpeg",
+    "sunflower.jpeg"
+];
+
+const schoolImage = document.querySelector(".school-image");
+
+document
+.getElementById("changeImage")
+.addEventListener("click",()=>{
+
+    // 一度フェードインとサイズ変化のクラスを外す
+    schoolImage.classList.remove("image-fade-in");
+
+    // ほんの一瞬だけ遅らせてから写真を切り替え、アニメーションを再実行
+    setTimeout(() => {
+        const randomImage =
+            images[
+                Math.floor(
+                    Math.random() *
+                    images.length
+                )
+            ];
+
+        schoolImage.src = randomImage;
+        
+        // クラスを付け直して、じわっと広がるフェードインを開始
+        schoolImage.classList.add("image-fade-in");
+    }, 20);
+});
+
+
+/* マウス追従ライト */
+
+const light =
+    document.getElementById(
+        "cursor-light"
+    );
+
+document.addEventListener(
+    "mousemove",
+    e => {
+
+        light.style.left =
+            e.clientX + "px";
+
+        light.style.top =
+            e.clientY + "px";
+    }
+);
+
+/* フェードイン監視用のJavaScript */
+
+const observer =
+new IntersectionObserver(entries=>{
+
+    entries.forEach(entry=>{
+
+        if(entry.isIntersecting){
+
+            entry.target.classList.add(
+                "show"
+            );
+        }
+    });
+
+});
+
+document
+.querySelectorAll(".fade, .fade-in-only")
+.forEach(el=>observer.observe(el));
+
+</script>
+
+</body>
+</html>
